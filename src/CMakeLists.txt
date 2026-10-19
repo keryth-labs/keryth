@@ -1,6 +1,7 @@
 add_library(keryth_core STATIC
     frontend/lexer.cpp
     frontend/parser.cpp
+    frontend/type_checker.cpp
 )
 
 target_include_directories(keryth_core PUBLIC
