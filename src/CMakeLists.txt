@@ -5,7 +5,9 @@ add_library(keryth_core STATIC
     ir/ir.cpp
     ir/lower.cpp
     runtime/interpreter.cpp
+    runtime/arena_executor.cpp
     optimizer/optimizer.cpp
+    optimizer/memory_planner.cpp
 )
 
 target_include_directories(keryth_core PUBLIC

@@ -26,6 +26,10 @@ add_executable(test_autodiff test_autodiff.cpp)
 target_link_libraries(test_autodiff PRIVATE keryth_core)
 add_test(NAME autodiff_unit_test COMMAND test_autodiff)
 
+add_executable(test_memory_planner test_memory_planner.cpp)
+target_link_libraries(test_memory_planner PRIVATE keryth_core)
+add_test(NAME memory_planner_unit_test COMMAND test_memory_planner)
+
 # Integration tests for CLI flags
 add_test(NAME cli_help_long COMMAND keryth --help)
 set_tests_properties(cli_help_long PROPERTIES PASS_REGULAR_EXPRESSION "Usage: .*keryth")
@@ -52,5 +56,11 @@ set_tests_properties(cli_dump_ir PROPERTIES PASS_REGULAR_EXPRESSION "fn @linear"
 add_test(NAME cli_dump_opt_ir COMMAND keryth --dump-opt-ir ${CMAKE_SOURCE_DIR}/examples/linear.kr)
 set_tests_properties(cli_dump_opt_ir PROPERTIES PASS_REGULAR_EXPRESSION "fused_matmul_bias_relu")
 
+add_test(NAME cli_dump_memory_plan COMMAND keryth --dump-memory-plan ${CMAKE_SOURCE_DIR}/examples/linear.kr)
+set_tests_properties(cli_dump_memory_plan PROPERTIES PASS_REGULAR_EXPRESSION "KERYTH STATIC MEMORY ARENA PLAN")
+
 add_test(NAME cli_run_example COMMAND keryth run ${CMAKE_SOURCE_DIR}/examples/linear.kr --opt)
 set_tests_properties(cli_run_example PROPERTIES PASS_REGULAR_EXPRESSION "Result: Tensor with shape \\[2, 2\\]")
+
+add_test(NAME cli_run_arena COMMAND keryth run ${CMAKE_SOURCE_DIR}/examples/linear.kr --arena)
+set_tests_properties(cli_run_arena PROPERTIES PASS_REGULAR_EXPRESSION "zero-allocation arena")

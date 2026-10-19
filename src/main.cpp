@@ -5,8 +5,10 @@
 #include <string_view>
 #include <vector>
 
+#include "keryth/arena_executor.hpp"
 #include "keryth/ir_builder.hpp"
 #include "keryth/lexer.hpp"
+#include "keryth/memory_planner.hpp"
 #include "keryth/optimizer.hpp"
 #include "keryth/parser.hpp"
 #include "keryth/runtime.hpp"
@@ -24,12 +26,14 @@ void print_help(std::string_view program_name) {
     std::cout << "Usage: " << program_name << " [options] [source_file.kr]\n\n"
               << "Keryth: An AI-native programming language and optimizing compiler.\n\n"
               << "Commands & Options:\n"
-              << "  -h, --help               Show this help message and exit\n"
-              << "  -v, --version            Show compiler version and exit\n"
-              << "  --dump-ast <file.kr>     Print abstract syntax tree\n"
-              << "  --dump-ir <file.kr>      Print unoptimized SSA intermediate representation\n"
-              << "  --dump-opt-ir <file.kr>  Print optimized SSA intermediate representation\n"
-              << "  run <file.kr> [--opt]    Compile and execute program top-level function\n\n"
+              << "  -h, --help                 Show this help message and exit\n"
+              << "  -v, --version              Show compiler version and exit\n"
+              << "  --dump-ast <file.kr>       Print abstract syntax tree\n"
+              << "  --dump-ir <file.kr>        Print unoptimized SSA intermediate representation\n"
+              << "  --dump-opt-ir <file.kr>    Print optimized SSA intermediate representation\n"
+              << "  --dump-memory-plan <file>  Print static memory arena layout and footprint savings\n"
+              << "  run <file.kr> [--opt]      Compile and execute using reference interpreter\n"
+              << "  run <file.kr> --arena      Compile and execute in static zero-allocation arena\n\n"
               << "Homepage: https://github.com/keryth/keryth\n";
 }
 
@@ -152,11 +156,53 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (mode == "--dump-memory-plan" && argc >= 3) {
+        std::string src = read_file(argv[2]);
+        if (src.empty()) return 1;
+
+        keryth::Lexer lexer(src, argv[2]);
+        keryth::Parser parser(lexer.tokenize_all());
+        auto program = parser.parse_program();
+
+        if (parser.has_errors()) {
+            for (const auto& diag : parser.diagnostics()) {
+                std::cerr << "error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::TypeChecker checker;
+        if (!checker.check_program(*program)) {
+            for (const auto& diag : checker.diagnostics()) {
+                std::cerr << "type error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::ASTLowerer lowerer(checker);
+        keryth::IRModule module = lowerer.lower_program(*program);
+
+        keryth::MemoryPlanner planner(64);
+        for (const auto& fn : module.functions) {
+            std::cout << "Function @" << fn.name << ":\n";
+            auto plan = planner.plan(fn);
+            std::cout << plan.dump() << "\n";
+        }
+        return 0;
+    }
+
     if (mode == "run" && argc >= 3) {
         std::string src = read_file(argv[2]);
         if (src.empty()) return 1;
 
-        bool optimize = (argc >= 4 && std::string_view(argv[3]) == "--opt");
+        bool optimize = false;
+        bool use_arena = false;
+
+        for (int i = 3; i < argc; ++i) {
+            std::string_view opt = argv[i];
+            if (opt == "--opt") optimize = true;
+            if (opt == "--arena") use_arena = true;
+        }
 
         keryth::Lexer lexer(src, argv[2]);
         keryth::Parser parser(lexer.tokenize_all());
@@ -192,9 +238,11 @@ int main(int argc, char* argv[]) {
         }
 
         const auto& fn = module.functions[0];
-        std::cout << "Executing function @" << fn.name << " (" << (optimize ? "optimized" : "unoptimized") << ")...\n";
+        std::cout << "Executing function @" << fn.name << " ("
+                  << (use_arena ? "zero-allocation arena" : (optimize ? "optimized" : "unoptimized"))
+                  << ")...\n";
 
-        // Create zero-initialized inputs based on parameter types
+        // Create initial sample inputs based on parameter types
         std::vector<keryth::RuntimeValue> args;
         for (keryth::ValueId pid : fn.parameters) {
             const auto* val = fn.get_value(pid);
@@ -211,8 +259,16 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        keryth::Interpreter interp;
-        auto res = interp.execute_function(fn, args);
+        keryth::RuntimeValue res;
+        if (use_arena) {
+            keryth::MemoryPlanner planner(64);
+            auto plan = planner.plan(fn);
+            keryth::ArenaExecutor arena_exec;
+            res = arena_exec.execute(fn, plan, args);
+        } else {
+            keryth::Interpreter interp;
+            res = interp.execute_function(fn, args);
+        }
 
         if (std::holds_alternative<keryth::Tensor>(res)) {
             const auto& t = std::get<keryth::Tensor>(res);
