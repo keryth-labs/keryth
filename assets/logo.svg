@@ -1,19 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
-  <!-- Pure black background -->
-  <rect width="500" height="500" fill="#000000" />
-  
-  <!-- Minimalist white geometric symbol: two interconnected, branching continuous paths -->
-  <g fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
-    <!-- First continuous branching path -->
-    <path d="M 150 100 L 250 200 L 250 350 L 150 450" />
-    <path d="M 250 200 L 350 100" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- High-contrast black rounded background container -->
+  <rect width="512" height="512" rx="100" ry="100" fill="#000000" />
 
-    <!-- Second continuous interconnected branching path -->
-    <path d="M 350 400 L 250 300 L 250 150 L 350 50" />
-    <path d="M 250 300 L 150 400" />
-    
-    <!-- Central geometric node connections -->
-    <circle cx="250" cy="200" r="16" fill="#FFFFFF" stroke="none" />
-    <circle cx="250" cy="300" r="16" fill="#FFFFFF" stroke="none" />
+  <!-- Authoritative Keryth Geometric Knot Symbol -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Mask for crossing gap to give ribbon / knot depth -->
+    <defs>
+      <mask id="crossing-mask">
+        <!-- Everything white is kept -->
+        <rect width="512" height="512" fill="#FFFFFF" />
+        <!-- Black circle cuts a gap in the upward diagonal where downward diagonal passes over -->
+        <circle cx="256" cy="256" r="38" fill="#000000" />
+      </mask>
+    </defs>
+
+    <!-- Upward diagonal path (from bottom-left loop to top-right terminal) with gap cutout -->
+    <path d="M 160 380 L 240 295 M 275 255 L 365 165" stroke-width="44" />
+
+    <!-- Continuous loop: Left vertical stem and downward diagonal to bottom-right terminal -->
+    <path d="M 160 380 L 160 132 C 160 120 175 115 185 125 L 365 347" stroke-width="44" />
+
+    <!-- Terminal Node 1 (Top-Right): Circle pad with center hole -->
+    <circle cx="365" cy="165" r="32" fill="#FFFFFF" stroke="none" />
+    <circle cx="365" cy="165" r="14" fill="#000000" stroke="none" />
+
+    <!-- Terminal Node 2 (Bottom-Right): Circle pad with center hole -->
+    <circle cx="365" cy="347" r="32" fill="#FFFFFF" stroke="none" />
+    <circle cx="365" cy="347" r="14" fill="#000000" stroke="none" />
   </g>
 </svg>

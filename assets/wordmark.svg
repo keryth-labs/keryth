@@ -1,20 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250" width="100%" height="100%">
-  <!-- Pure black background -->
-  <rect width="800" height="250" fill="#000000" />
-  
-  <!-- Minimalist white geometric logo symbol -->
-  <g fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" transform="translate(60, 40) scale(0.35)">
-    <path d="M 150 100 L 250 200 L 250 350 L 150 450" />
-    <path d="M 250 200 L 350 100" />
-    <path d="M 350 400 L 250 300 L 250 150 L 350 50" />
-    <path d="M 250 300 L 150 400" />
-    <circle cx="250" cy="200" r="14" fill="#FFFFFF" stroke="none" />
-    <circle cx="250" cy="300" r="14" fill="#FFFFFF" stroke="none" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="100%" height="100%">
+  <!-- High-contrast black background -->
+  <rect width="900" height="280" rx="30" ry="30" fill="#000000" />
+
+  <!-- Authoritative Keryth Geometric Knot Symbol -->
+  <g transform="translate(60, 40) scale(0.39)" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Upward diagonal path with gap cutout -->
+    <path d="M 160 380 L 240 295 M 275 255 L 365 165" stroke-width="44" />
+
+    <!-- Continuous loop: Left vertical stem and downward diagonal -->
+    <path d="M 160 380 L 160 132 C 160 120 175 115 185 125 L 365 347" stroke-width="44" />
+
+    <!-- Terminal Node 1 (Top-Right): Circle pad with center hole -->
+    <circle cx="365" cy="165" r="32" fill="#FFFFFF" stroke="none" />
+    <circle cx="365" cy="165" r="14" fill="#000000" stroke="none" />
+
+    <!-- Terminal Node 2 (Bottom-Right): Circle pad with center hole -->
+    <circle cx="365" cy="347" r="32" fill="#FFFFFF" stroke="none" />
+    <circle cx="365" cy="347" r="14" fill="#000000" stroke="none" />
   </g>
 
   <!-- Wordmark in clean geometric sans-serif typeface -->
-  <text x="270" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif" font-size="76" font-weight="800" fill="#FFFFFF" letter-spacing="8">KERYTH</text>
+  <text x="310" y="145" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif" font-size="82" font-weight="800" fill="#FFFFFF" letter-spacing="8">KERYTH</text>
 
   <!-- Tagline -->
-  <text x="275" y="175" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', 'Segoe UI', sans-serif" font-size="20" font-weight="400" fill="#888888" letter-spacing="2">Write once. Optimize for the machine.</text>
+  <text x="315" y="195" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#A0A0A0" letter-spacing="2">Write once. Optimize for the machine.</text>
 </svg>
