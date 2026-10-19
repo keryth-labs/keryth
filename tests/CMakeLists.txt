@@ -1,7 +1,10 @@
 add_executable(test_version test_version.cpp)
 target_link_libraries(test_version PRIVATE keryth_core)
-
 add_test(NAME version_unit_test COMMAND test_version)
+
+add_executable(test_lexer test_lexer.cpp)
+target_link_libraries(test_lexer PRIVATE keryth_core)
+add_test(NAME lexer_unit_test COMMAND test_lexer)
 
 # Integration tests for CLI flags
 add_test(NAME cli_help_long COMMAND keryth --help)
