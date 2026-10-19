@@ -1,0 +1,20 @@
+// Keryth Model with Inlined Weights and Transpose / Reshape Operators
+fn model_forward(x: Tensor<f32, [1, 2]>) -> Tensor<f32, [2]> {
+    // 1. Inlined weight matrix literal
+    let W: Tensor<f32, [2, 2]> = [[0.5, -1.0],
+                                  [1.5,  2.0]];
+
+    // 2. Transpose weights
+    let Wt: Tensor<f32, [2, 2]> = transpose(W);
+
+    // 3. Matrix multiplication
+    let z: Tensor<f32, [1, 2]> = matmul(x, Wt);
+
+    // 4. Bias addition
+    let b: Tensor<f32, [2]> = [0.1, -0.2];
+    let y: Tensor<f32, [1, 2]> = z + b;
+
+    // 5. Zero-overhead view reshape to 1D
+    let out: Tensor<f32, [2]> = reshape(y);
+    return relu(out);
+}

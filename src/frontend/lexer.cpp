@@ -176,16 +176,30 @@ Token Lexer::next_token() {
 
     char c = advance();
 
+    // String literals
+    if (c == '"') {
+        while (!is_at_end() && peek() != '"') {
+            if (peek() == '\n') break;
+            advance();
+        }
+        if (is_at_end() || peek() != '"') {
+            return Token{TokenKind::Invalid, source_.substr(start_loc.offset, offset_ - start_loc.offset), SourceSpan{start_loc, current_location()}};
+        }
+        advance(); // consume closing "
+        std::string_view lexeme = source_.substr(start_loc.offset, offset_ - start_loc.offset);
+        return Token{TokenKind::StringLiteral, lexeme, SourceSpan{start_loc, current_location()}};
+    }
+
     // Identifiers and keywords
     if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
-        offset_--; // step back to include first char in lex_identifier_or_keyword
+        offset_--;
         column_--;
         return lex_identifier_or_keyword(start_loc);
     }
 
     // Numbers
     if (std::isdigit(static_cast<unsigned char>(c))) {
-        offset_--; // step back to include first digit
+        offset_--;
         column_--;
         return lex_number(start_loc);
     }

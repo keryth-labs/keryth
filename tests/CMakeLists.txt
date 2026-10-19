@@ -34,6 +34,10 @@ add_executable(test_llvm_codegen test_llvm_codegen.cpp)
 target_link_libraries(test_llvm_codegen PRIVATE keryth_core)
 add_test(NAME llvm_codegen_unit_test COMMAND test_llvm_codegen)
 
+add_executable(test_ergonomics test_ergonomics.cpp)
+target_link_libraries(test_ergonomics PRIVATE keryth_core)
+add_test(NAME ergonomics_unit_test COMMAND test_ergonomics)
+
 # Integration tests for CLI flags
 add_test(NAME cli_help_long COMMAND keryth --help)
 set_tests_properties(cli_help_long PROPERTIES PASS_REGULAR_EXPRESSION "Usage: .*keryth")
@@ -74,3 +78,6 @@ set_tests_properties(cli_run_arena PROPERTIES PASS_REGULAR_EXPRESSION "zero-allo
 
 add_test(NAME cli_run_native COMMAND keryth run ${CMAKE_SOURCE_DIR}/examples/linear.kr --native)
 set_tests_properties(cli_run_native PROPERTIES PASS_REGULAR_EXPRESSION "compiled natively")
+
+add_test(NAME cli_run_model_checkpoint COMMAND keryth run ${CMAKE_SOURCE_DIR}/examples/model_checkpoint.kr --arena)
+set_tests_properties(cli_run_model_checkpoint PROPERTIES PASS_REGULAR_EXPRESSION "Result: Tensor with shape \\[2\\]")

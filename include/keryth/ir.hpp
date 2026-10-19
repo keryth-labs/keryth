@@ -21,6 +21,7 @@ enum class Opcode {
     ConstantInt,
     ConstantFloat,
     ConstantBool,
+    ConstantTensor,
     Add,
     Sub,
     Mul,
@@ -28,6 +29,9 @@ enum class Opcode {
     Matmul,
     Relu,
     Sum,
+    Transpose,
+    Reshape,
+    LoadTensor,
     // Fused operations
     FusedMatmulBiasRelu,
     Return
@@ -39,6 +43,7 @@ enum class Opcode {
         case Opcode::ConstantInt:         return "const.i32";
         case Opcode::ConstantFloat:       return "const.f32";
         case Opcode::ConstantBool:        return "const.bool";
+        case Opcode::ConstantTensor:      return "const.tensor";
         case Opcode::Add:                 return "add";
         case Opcode::Sub:                 return "sub";
         case Opcode::Mul:                 return "mul";
@@ -46,13 +51,16 @@ enum class Opcode {
         case Opcode::Matmul:              return "matmul";
         case Opcode::Relu:                return "relu";
         case Opcode::Sum:                 return "sum";
+        case Opcode::Transpose:           return "transpose";
+        case Opcode::Reshape:             return "reshape";
+        case Opcode::LoadTensor:          return "load_tensor";
         case Opcode::FusedMatmulBiasRelu: return "fused_matmul_bias_relu";
         case Opcode::Return:              return "return";
     }
     return "<unknown_op>";
 }
 
-using LiteralValue = std::variant<std::monostate, int64_t, double, bool>;
+using LiteralValue = std::variant<std::monostate, int64_t, double, bool, std::string, std::vector<float>>;
 
 struct Value {
     ValueId id{INVALID_VALUE_ID};

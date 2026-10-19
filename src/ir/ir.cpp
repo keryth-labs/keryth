@@ -41,6 +41,16 @@ std::string dump_function(const IRFunction& fn) {
             ss << " " << std::get<double>(inst.literal);
         } else if (std::holds_alternative<bool>(inst.literal)) {
             ss << " " << (std::get<bool>(inst.literal) ? "true" : "false");
+        } else if (std::holds_alternative<std::string>(inst.literal)) {
+            ss << " \"" << std::get<std::string>(inst.literal) << "\"";
+        } else if (std::holds_alternative<std::vector<float>>(inst.literal)) {
+            const auto& vec = std::get<std::vector<float>>(inst.literal);
+            ss << " [";
+            for (size_t i = 0; i < vec.size(); ++i) {
+                ss << vec[i];
+                if (i + 1 < vec.size()) ss << ", ";
+            }
+            ss << "]";
         }
 
         ss << "\n";

@@ -77,6 +77,10 @@ public:
     [[nodiscard]] static Tensor relu_backward(const Tensor& input, const Tensor& grad_output);
     [[nodiscard]] Tensor scalar_mul(float scalar) const;
 
+    // File I/O for weight ingestion
+    [[nodiscard]] static Tensor load_from_binary(const std::string& path, const std::vector<int64_t>& shape);
+    void save_to_binary(const std::string& path) const;
+
 private:
     void compute_strides() {
         strides_.resize(shape_.size());

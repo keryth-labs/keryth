@@ -368,8 +368,154 @@ std::unique_ptr<ExprNode> Parser::parse_multiplicative() {
     return lhs;
 }
 
+std::unique_ptr<TensorLiteralExprAST> Parser::parse_tensor_literal() {
+    const Token* lbracket = consume(TokenKind::LBracket, "Expected '['");
+    if (!lbracket) return nullptr;
+    SourceLocation start_loc = lbracket->span.start;
+
+    std::vector<float> values;
+    std::vector<int64_t> shape;
+
+    if (check(TokenKind::LBracket)) {
+        // 2D tensor literal: [[row1], [row2], ...]
+        int64_t num_rows = 0;
+        int64_t num_cols = -1;
+
+        while (check(TokenKind::LBracket)) {
+            consume(TokenKind::LBracket, "Expected '[' for row");
+            int64_t current_row_cols = 0;
+
+            while (!check(TokenKind::RBracket) && !is_at_end()) {
+                if (match(TokenKind::FloatLiteral)) {
+                    std::string lex(previous().lexeme);
+                    if (!lex.empty() && (lex.back() == 'f' || lex.back() == 'F')) lex.pop_back();
+                    values.push_back(static_cast<float>(std::stod(lex)));
+                    current_row_cols++;
+                } else if (match(TokenKind::IntegerLiteral)) {
+                    int64_t val = 0;
+                    auto [ptr, ec] = std::from_chars(previous().lexeme.data(), previous().lexeme.data() + previous().lexeme.size(), val);
+                    if (ec != std::errc()) {
+                        record_error(previous().span, "Invalid integer literal in tensor");
+                        return nullptr;
+                    }
+                    values.push_back(static_cast<float>(val));
+                    current_row_cols++;
+                } else if (match(TokenKind::Minus)) {
+                    if (match(TokenKind::FloatLiteral)) {
+                        std::string lex(previous().lexeme);
+                        if (!lex.empty() && (lex.back() == 'f' || lex.back() == 'F')) lex.pop_back();
+                        values.push_back(-static_cast<float>(std::stod(lex)));
+                        current_row_cols++;
+                    } else if (match(TokenKind::IntegerLiteral)) {
+                        int64_t val = 0;
+                        auto [ptr, ec] = std::from_chars(previous().lexeme.data(), previous().lexeme.data() + previous().lexeme.size(), val);
+                        if (ec != std::errc()) {
+                            record_error(previous().span, "Invalid integer literal in tensor");
+                            return nullptr;
+                        }
+                        values.push_back(-static_cast<float>(val));
+                        current_row_cols++;
+                    } else {
+                        record_error(peek().span, "Expected number after '-' in tensor literal");
+                        return nullptr;
+                    }
+                } else {
+                    record_error(peek().span, "Expected number in tensor literal");
+                    return nullptr;
+                }
+
+                if (!match(TokenKind::Comma)) {
+                    break;
+                }
+            }
+
+            if (!consume(TokenKind::RBracket, "Expected ']' at end of row")) {
+                return nullptr;
+            }
+            num_rows++;
+            if (num_cols == -1) {
+                num_cols = current_row_cols;
+            } else if (num_cols != current_row_cols) {
+                record_error(previous().span, "Inconsistent row dimension in 2D tensor literal");
+                return nullptr;
+            }
+
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+        }
+
+        const Token* rbracket = consume(TokenKind::RBracket, "Expected ']' at end of 2D tensor literal");
+        if (!rbracket) return nullptr;
+
+        shape = {num_rows, num_cols};
+        SourceSpan span{start_loc, rbracket->span.end};
+        return std::make_unique<TensorLiteralExprAST>(std::move(values), std::move(shape), span);
+    } else {
+        // 1D tensor literal: [1.0, 2.0, 3.0]
+        while (!check(TokenKind::RBracket) && !is_at_end()) {
+            if (match(TokenKind::FloatLiteral)) {
+                std::string lex(previous().lexeme);
+                if (!lex.empty() && (lex.back() == 'f' || lex.back() == 'F')) lex.pop_back();
+                values.push_back(static_cast<float>(std::stod(lex)));
+            } else if (match(TokenKind::IntegerLiteral)) {
+                int64_t val = 0;
+                auto [ptr, ec] = std::from_chars(previous().lexeme.data(), previous().lexeme.data() + previous().lexeme.size(), val);
+                if (ec != std::errc()) {
+                    record_error(previous().span, "Invalid integer literal in tensor");
+                    return nullptr;
+                }
+                values.push_back(static_cast<float>(val));
+            } else if (match(TokenKind::Minus)) {
+                if (match(TokenKind::FloatLiteral)) {
+                    std::string lex(previous().lexeme);
+                    if (!lex.empty() && (lex.back() == 'f' || lex.back() == 'F')) lex.pop_back();
+                    values.push_back(-static_cast<float>(std::stod(lex)));
+                } else if (match(TokenKind::IntegerLiteral)) {
+                    int64_t val = 0;
+                    auto [ptr, ec] = std::from_chars(previous().lexeme.data(), previous().lexeme.data() + previous().lexeme.size(), val);
+                    if (ec != std::errc()) {
+                        record_error(previous().span, "Invalid integer literal in tensor");
+                        return nullptr;
+                    }
+                    values.push_back(-static_cast<float>(val));
+                } else {
+                    record_error(peek().span, "Expected number after '-' in tensor literal");
+                    return nullptr;
+                }
+            } else {
+                record_error(peek().span, "Expected number in 1D tensor literal");
+                return nullptr;
+            }
+
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+        }
+
+        const Token* rbracket = consume(TokenKind::RBracket, "Expected ']' at end of 1D tensor literal");
+        if (!rbracket) return nullptr;
+
+        shape = {static_cast<int64_t>(values.size())};
+        SourceSpan span{start_loc, rbracket->span.end};
+        return std::make_unique<TensorLiteralExprAST>(std::move(values), std::move(shape), span);
+    }
+}
+
 std::unique_ptr<ExprNode> Parser::parse_primary() {
     SourceLocation start_loc = peek().span.start;
+
+    if (match(TokenKind::StringLiteral)) {
+        std::string_view lex = previous().lexeme;
+        if (lex.size() >= 2 && lex.front() == '"' && lex.back() == '"') {
+            lex = lex.substr(1, lex.size() - 2);
+        }
+        return std::make_unique<StringLiteralExprAST>(std::string(lex), previous().span);
+    }
+
+    if (check(TokenKind::LBracket)) {
+        return parse_tensor_literal();
+    }
 
     if (match(TokenKind::IntegerLiteral)) {
         int64_t val = 0;

@@ -95,6 +95,42 @@ void TypeChecker::check_statement(const StmtNode& stmt) {
 
 void TypeChecker::check_let_statement(const LetStmtAST& stmt) {
     TypePtr declared_type = resolve_type(*stmt.type_annotation);
+
+    // Check for special builtins that take contextual type from declared_type (reshape, load_tensor)
+    if (auto call_expr = dynamic_cast<const CallExprAST*>(stmt.initializer.get())) {
+        if (call_expr->callee == "reshape") {
+            if (call_expr->args.size() != 1) {
+                record_error(call_expr->span, "reshape expects 1 argument (the tensor to reshape)");
+            } else {
+                TypePtr arg_type = check_expression(*call_expr->args[0]);
+                if (arg_type && arg_type->is_tensor()) {
+                    if (arg_type->num_elements() != declared_type->num_elements()) {
+                        record_error(stmt.span, "reshape element count mismatch: source has " +
+                                     std::to_string(arg_type->num_elements()) + " elements, but target " +
+                                     declared_type->to_string() + " expects " +
+                                     std::to_string(declared_type->num_elements()));
+                    }
+                }
+            }
+            node_types_[call_expr] = declared_type;
+            node_types_[&stmt] = declared_type;
+            symbol_table_.define_variable(stmt.var_name, declared_type, stmt.span);
+            return;
+        }
+
+        if (call_expr->callee == "load_tensor") {
+            if (call_expr->args.size() != 1) {
+                record_error(call_expr->span, "load_tensor expects 1 argument (filepath string)");
+            } else {
+                (void)check_expression(*call_expr->args[0]);
+            }
+            node_types_[call_expr] = declared_type;
+            node_types_[&stmt] = declared_type;
+            symbol_table_.define_variable(stmt.var_name, declared_type, stmt.span);
+            return;
+        }
+    }
+
     TypePtr init_type = check_expression(*stmt.initializer);
 
     if (init_type) {
@@ -135,6 +171,10 @@ TypePtr TypeChecker::check_expression(const ExprNode& expr) {
         result = Type::f32();
     } else if (dynamic_cast<const BoolLiteralExprAST*>(&expr)) {
         result = Type::boolean();
+    } else if (dynamic_cast<const StringLiteralExprAST*>(&expr)) {
+        result = Type::i32(); // String represented as opaque pointer/integer index
+    } else if (auto tensor_lit = dynamic_cast<const TensorLiteralExprAST*>(&expr)) {
+        result = Type::make_tensor(ScalarKind::F32, tensor_lit->shape);
     } else if (auto bin_expr = dynamic_cast<const BinaryExprAST*>(&expr)) {
         result = check_binary_expr(*bin_expr);
     } else if (auto call_expr = dynamic_cast<const CallExprAST*>(&expr)) {
@@ -248,6 +288,41 @@ TypePtr TypeChecker::check_call_expr(const CallExprAST& expr) {
         }
 
         return Type::make_tensor(a->element_kind(), {m, n});
+    }
+
+    // Builtin: transpose(A)
+    if (expr.callee == "transpose") {
+        if (expr.args.size() != 1) {
+            record_error(expr.span, "transpose expects exactly 1 argument, got " + std::to_string(expr.args.size()));
+            return nullptr;
+        }
+        TypePtr a = check_expression(*expr.args[0]);
+        if (!a) return nullptr;
+        if (!a->is_tensor() || a->rank() != 2) {
+            record_error(expr.span, "transpose requires a rank-2 matrix tensor, got " + a->to_string());
+            return nullptr;
+        }
+        return Type::make_tensor(a->element_kind(), {a->dimensions()[1], a->dimensions()[0]});
+    }
+
+    // Builtin: reshape(A)
+    if (expr.callee == "reshape") {
+        if (expr.args.size() != 1) {
+            record_error(expr.span, "reshape expects 1 argument");
+            return nullptr;
+        }
+        return check_expression(*expr.args[0]);
+    }
+
+    // Builtin: load_tensor(path)
+    if (expr.callee == "load_tensor") {
+        if (expr.args.size() != 1) {
+            record_error(expr.span, "load_tensor expects 1 argument (filepath)");
+            return nullptr;
+        }
+        (void)check_expression(*expr.args[0]);
+        // Default placeholder if not specialized by let
+        return Type::make_tensor(ScalarKind::F32, {1});
     }
 
     // Builtin: relu(x)

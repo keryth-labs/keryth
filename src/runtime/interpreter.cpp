@@ -1,6 +1,7 @@
 #include "keryth/runtime.hpp"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <stdexcept>
 
 namespace keryth {
@@ -198,6 +199,24 @@ Tensor Tensor::scalar_mul(float scalar) const {
     return Tensor(shape_, std::move(res_data));
 }
 
+Tensor Tensor::load_from_binary(const std::string& path, const std::vector<int64_t>& shape) {
+    Tensor t(shape);
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs.is_open()) {
+        // Fallback: zero tensor if file not found
+        return t;
+    }
+    ifs.read(reinterpret_cast<char*>(t.data().data()), t.numel() * sizeof(float));
+    return t;
+}
+
+void Tensor::save_to_binary(const std::string& path) const {
+    std::ofstream ofs(path, std::ios::binary);
+    if (ofs.is_open()) {
+        ofs.write(reinterpret_cast<const char*>(data_.data()), data_.size() * sizeof(float));
+    }
+}
+
 RuntimeValue Interpreter::execute_function(const IRFunction& fn, const std::vector<RuntimeValue>& args) {
     std::unordered_map<ValueId, RuntimeValue> env;
 
@@ -219,6 +238,29 @@ RuntimeValue Interpreter::execute_function(const IRFunction& fn, const std::vect
             case Opcode::ConstantBool:
                 env[inst.result_id] = std::get<bool>(inst.literal);
                 break;
+            case Opcode::ConstantTensor: {
+                const auto* val = fn.get_value(inst.result_id);
+                const auto& vec = std::get<std::vector<float>>(inst.literal);
+                env[inst.result_id] = Tensor(val->type->dimensions(), vec);
+                break;
+            }
+            case Opcode::Transpose: {
+                const auto& t = std::get<Tensor>(env[inst.operands[0]]);
+                env[inst.result_id] = t.transpose();
+                break;
+            }
+            case Opcode::Reshape: {
+                const auto& t = std::get<Tensor>(env[inst.operands[0]]);
+                const auto* val = fn.get_value(inst.result_id);
+                env[inst.result_id] = Tensor(val->type->dimensions(), t.data());
+                break;
+            }
+            case Opcode::LoadTensor: {
+                std::string path = std::get<std::string>(inst.literal);
+                const auto* val = fn.get_value(inst.result_id);
+                env[inst.result_id] = Tensor::load_from_binary(path, val->type->dimensions());
+                break;
+            }
             case Opcode::Add: {
                 const auto& v1 = env[inst.operands[0]];
                 const auto& v2 = env[inst.operands[1]];

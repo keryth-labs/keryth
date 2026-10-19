@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <fstream>
 
 namespace keryth {
 
@@ -13,7 +14,6 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
     std::vector<uint8_t> arena(plan.total_arena_bytes, 0);
     uint8_t* arena_base = arena.data();
 
-    // Helper lambda to get pointer for a given value ID
     auto get_ptr = [&](ValueId vid) -> void* {
         auto it = plan.offsets.find(vid);
         assert(it != plan.offsets.end());
@@ -57,7 +57,7 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
     for (const auto& inst : fn.instructions) {
         switch (inst.opcode) {
             case Opcode::Parameter:
-                break; // Handled above
+                break;
 
             case Opcode::ConstantInt:
                 *get_int_ptr(inst.result_id) = static_cast<int32_t>(std::get<int64_t>(inst.literal));
@@ -70,6 +70,46 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
             case Opcode::ConstantBool:
                 *get_bool_ptr(inst.result_id) = std::get<bool>(inst.literal);
                 break;
+
+            case Opcode::ConstantTensor: {
+                const auto& vec = std::get<std::vector<float>>(inst.literal);
+                float* dst = get_float_ptr(inst.result_id);
+                std::memcpy(dst, vec.data(), vec.size() * sizeof(float));
+                break;
+            }
+
+            case Opcode::Transpose: {
+                const float* src = get_float_ptr(inst.operands[0]);
+                float* dst = get_float_ptr(inst.result_id);
+                const auto* val_in = fn.get_value(inst.operands[0]);
+                int64_t rows = val_in->type->dimensions()[0];
+                int64_t cols = val_in->type->dimensions()[1];
+                for (int64_t r = 0; r < rows; ++r) {
+                    for (int64_t c = 0; c < cols; ++c) {
+                        dst[c * rows + r] = src[r * cols + c];
+                    }
+                }
+                break;
+            }
+
+            case Opcode::Reshape: {
+                const float* src = get_float_ptr(inst.operands[0]);
+                float* dst = get_float_ptr(inst.result_id);
+                const auto* val = fn.get_value(inst.result_id);
+                std::memcpy(dst, src, val->type->num_elements() * sizeof(float));
+                break;
+            }
+
+            case Opcode::LoadTensor: {
+                std::string path = std::get<std::string>(inst.literal);
+                float* dst = get_float_ptr(inst.result_id);
+                const auto* val = fn.get_value(inst.result_id);
+                std::ifstream ifs(path, std::ios::binary);
+                if (ifs.is_open()) {
+                    ifs.read(reinterpret_cast<char*>(dst), val->type->num_elements() * sizeof(float));
+                }
+                break;
+            }
 
             case Opcode::Add: {
                 const auto* val = fn.get_value(inst.result_id);
@@ -86,7 +126,6 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
                             res[i] = a[i] + b[i];
                         }
                     } else {
-                        // Broadcasting: rank-2 + rank-1
                         int64_t m = val->type->dimensions()[0];
                         int64_t n = val->type->dimensions()[1];
                         for (int64_t i = 0; i < m; ++i) {
@@ -217,7 +256,6 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
                             c[c_row + j] += a_ik * b[b_row + j];
                         }
                     }
-                    // Epilogue fused into cache
                     for (int64_t j = 0; j < N; ++j) {
                         float val = c[c_row + j] + bias[j];
                         c[c_row + j] = std::max(0.0f, val);
@@ -244,7 +282,6 @@ RuntimeValue ArenaExecutor::execute(const IRFunction& fn,
         }
     }
 
-    // 4. Extract and return the result value from the arena
     assert(return_vid != INVALID_VALUE_ID);
     const auto* ret_val = fn.get_value(return_vid);
     assert(ret_val && ret_val->type);

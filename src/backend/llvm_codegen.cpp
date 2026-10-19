@@ -48,6 +48,56 @@ void LLVMCodeGen::emit_instruction(const Instruction& inst, const IRFunction& fn
             break;
         }
 
+        case Opcode::ConstantTensor: {
+            const auto* res_val = fn.get_value(inst.result_id);
+            int64_t numel = res_val->type->num_elements();
+            const auto& vec = std::get<std::vector<float>>(inst.literal);
+
+            ss << "  ; Constant Tensor Literal\n"
+               << "  %v" << inst.result_id << " = call ptr @malloc(i64 " << numel * sizeof(float) << ")\n";
+
+            for (int64_t i = 0; i < numel; ++i) {
+                float v = (i < static_cast<int64_t>(vec.size())) ? vec[i] : 0.0f;
+                ss << "  %elem_p_" << inst.result_id << "_" << i << " = getelementptr inbounds float, ptr %v" << inst.result_id << ", i64 " << i << "\n"
+                   << "  store float " << v << ", ptr %elem_p_" << inst.result_id << "_" << i << "\n";
+            }
+            break;
+        }
+
+        case Opcode::Transpose: {
+            const auto* in_val = fn.get_value(inst.operands[0]);
+            int64_t rows = in_val->type->dimensions()[0];
+            int64_t cols = in_val->type->dimensions()[1];
+            int64_t numel = rows * cols;
+
+            ss << "  ; Tensor Transpose: [" << rows << ", " << cols << "] -> [" << cols << ", " << rows << "]\n"
+               << "  %v" << inst.result_id << " = call ptr @malloc(i64 " << numel * sizeof(float) << ")\n"
+               << "  call void @keryth_runtime_transpose(ptr %v" << inst.operands[0]
+               << ", ptr %v" << inst.result_id << ", i64 " << rows << ", i64 " << cols << ")\n";
+            break;
+        }
+
+        case Opcode::Reshape: {
+            const auto* res_val = fn.get_value(inst.result_id);
+            int64_t numel = res_val->type->num_elements();
+
+            ss << "  ; Tensor Reshape\n"
+               << "  %v" << inst.result_id << " = call ptr @malloc(i64 " << numel * sizeof(float) << ")\n"
+               << "  call void @llvm.memcpy.p0.p0.i64(ptr %v" << inst.result_id
+               << ", ptr %v" << inst.operands[0] << ", i64 " << numel * sizeof(float) << ", i1 false)\n";
+            break;
+        }
+
+        case Opcode::LoadTensor: {
+            const auto* res_val = fn.get_value(inst.result_id);
+            int64_t numel = res_val->type->num_elements();
+
+            ss << "  ; Load Tensor from Checkpoint\n"
+               << "  %v" << inst.result_id << " = call ptr @malloc(i64 " << numel * sizeof(float) << ")\n"
+               << "  call void @llvm.memset.p0.i64(ptr %v" << inst.result_id << ", i8 0, i64 " << numel * sizeof(float) << ", i1 false)\n";
+            break;
+        }
+
         case Opcode::Add: {
             const auto* res_val = fn.get_value(inst.result_id);
             if (res_val && res_val->type && res_val->type->is_tensor()) {
@@ -63,7 +113,6 @@ void LLVMCodeGen::emit_instruction(const Instruction& inst, const IRFunction& fn
                        << ", ptr %v" << inst.operands[1] << ", ptr %v" << inst.result_id
                        << ", i64 " << numel << ")\n";
                 } else {
-                    // Broadcasting: rank-2 + rank-1
                     int64_t m = res_val->type->dimensions()[0];
                     int64_t n = res_val->type->dimensions()[1];
                     ss << "  call void @keryth_runtime_tensor_add_broadcast(ptr %v" << inst.operands[0]
@@ -210,11 +259,40 @@ std::string LLVMCodeGen::emit_module(const IRModule& module) const {
        << "declare ptr @malloc(i64)\n"
        << "declare void @free(ptr)\n"
        << "declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)\n"
+       << "declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)\n"
        << "declare i32 @printf(ptr, ...)\n\n";
 
-    // Tensor elementwise Add kernel
+    // Tensor Transpose kernel
     ss << "; Runtime Kernels\n"
-       << "define void @keryth_runtime_tensor_add(ptr %a, ptr %b, ptr %c, i64 %numel) {\n"
+       << "define void @keryth_runtime_transpose(ptr %src, ptr %dst, i64 %rows, i64 %cols) {\n"
+       << "entry:\n"
+       << "  br label %loop_r\n"
+       << "loop_r:\n"
+       << "  %r = phi i64 [ 0, %entry ], [ %next_r, %latch_r ]\n"
+       << "  %r_off = mul i64 %r, %cols\n"
+       << "  br label %loop_c\n"
+       << "loop_c:\n"
+       << "  %c = phi i64 [ 0, %loop_r ], [ %next_c, %loop_c ]\n"
+       << "  %src_idx = add i64 %r_off, %c\n"
+       << "  %p_src = getelementptr inbounds float, ptr %src, i64 %src_idx\n"
+       << "  %val = load float, ptr %p_src\n"
+       << "  %dst_row_off = mul i64 %c, %rows\n"
+       << "  %dst_idx = add i64 %dst_row_off, %r\n"
+       << "  %p_dst = getelementptr inbounds float, ptr %dst, i64 %dst_idx\n"
+       << "  store float %val, ptr %p_dst\n"
+       << "  %next_c = add i64 %c, 1\n"
+       << "  %cond_c = icmp slt i64 %next_c, %cols\n"
+       << "  br i1 %cond_c, label %loop_c, label %latch_r\n"
+       << "latch_r:\n"
+       << "  %next_r = add i64 %r, 1\n"
+       << "  %cond_r = icmp slt i64 %next_r, %rows\n"
+       << "  br i1 %cond_r, label %loop_r, label %exit\n"
+       << "exit:\n"
+       << "  ret void\n"
+       << "}\n\n";
+
+    // Tensor elementwise Add kernel
+    ss << "define void @keryth_runtime_tensor_add(ptr %a, ptr %b, ptr %c, i64 %numel) {\n"
        << "entry:\n"
        << "  br label %loop\n"
        << "loop:\n"

@@ -49,6 +49,7 @@ private:
     std::unique_ptr<ExprNode> parse_additive();
     std::unique_ptr<ExprNode> parse_multiplicative();
     std::unique_ptr<ExprNode> parse_primary();
+    std::unique_ptr<TensorLiteralExprAST> parse_tensor_literal();
 
     std::vector<Token> tokens_;
     size_t current_{0};

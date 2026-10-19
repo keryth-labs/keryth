@@ -125,6 +125,25 @@ struct BoolLiteralExprAST : public ExprNode {
     void accept(ASTVisitor& visitor) const override;
 };
 
+struct StringLiteralExprAST : public ExprNode {
+    std::string value;
+
+    StringLiteralExprAST(std::string v, SourceSpan s) noexcept
+        : ExprNode(s), value(std::move(v)) {}
+
+    void accept(ASTVisitor& visitor) const override;
+};
+
+struct TensorLiteralExprAST : public ExprNode {
+    std::vector<float> values;
+    std::vector<int64_t> shape;
+
+    TensorLiteralExprAST(std::vector<float> v, std::vector<int64_t> shp, SourceSpan s) noexcept
+        : ExprNode(s), values(std::move(v)), shape(std::move(shp)) {}
+
+    void accept(ASTVisitor& visitor) const override;
+};
+
 enum class BinaryOpKind {
     Add,
     Sub,
@@ -241,6 +260,8 @@ public:
     virtual void visit(const IntegerLiteralExprAST& node) = 0;
     virtual void visit(const FloatLiteralExprAST& node) = 0;
     virtual void visit(const BoolLiteralExprAST& node) = 0;
+    virtual void visit(const StringLiteralExprAST& node) = 0;
+    virtual void visit(const TensorLiteralExprAST& node) = 0;
     virtual void visit(const BinaryExprAST& node) = 0;
     virtual void visit(const CallExprAST& node) = 0;
 
@@ -251,13 +272,14 @@ public:
     virtual void visit(const ProgramAST& node) = 0;
 };
 
-// Inline implementations of accept
 inline void ScalarTypeNode::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void TensorTypeNode::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void IdentifierExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void IntegerLiteralExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void FloatLiteralExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void BoolLiteralExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
+inline void StringLiteralExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
+inline void TensorLiteralExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void BinaryExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void CallExprAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }
 inline void LetStmtAST::accept(ASTVisitor& visitor) const { visitor.visit(*this); }

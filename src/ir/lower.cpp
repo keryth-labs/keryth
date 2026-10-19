@@ -114,6 +114,29 @@ ValueId ASTLowerer::lower_expression(const ExprNode& expr, IRFunction& out_fn) {
             .span = expr.span
         });
         return vid;
+    } else if (const auto* str_expr = dynamic_cast<const StringLiteralExprAST*>(&expr)) {
+        ValueId vid = allocate_value(Type::i32(), "c_str", out_fn);
+        out_fn.instructions.push_back(Instruction{
+            .result_id = vid,
+            .opcode = Opcode::ConstantInt,
+            .operands = {},
+            .literal = str_expr->value,
+            .type = Type::i32(),
+            .span = expr.span
+        });
+        return vid;
+    } else if (const auto* tensor_lit = dynamic_cast<const TensorLiteralExprAST*>(&expr)) {
+        TypePtr t_type = expr_type ? expr_type : Type::make_tensor(ScalarKind::F32, tensor_lit->shape);
+        ValueId vid = allocate_value(t_type, "c_tensor", out_fn);
+        out_fn.instructions.push_back(Instruction{
+            .result_id = vid,
+            .opcode = Opcode::ConstantTensor,
+            .operands = {},
+            .literal = tensor_lit->values,
+            .type = t_type,
+            .span = expr.span
+        });
+        return vid;
     } else if (const auto* bin_expr = dynamic_cast<const BinaryExprAST*>(&expr)) {
         ValueId lhs_id = lower_expression(*bin_expr->lhs, out_fn);
         ValueId rhs_id = lower_expression(*bin_expr->rhs, out_fn);
@@ -137,6 +160,23 @@ ValueId ASTLowerer::lower_expression(const ExprNode& expr, IRFunction& out_fn) {
         });
         return vid;
     } else if (const auto* call_expr = dynamic_cast<const CallExprAST*>(&expr)) {
+        if (call_expr->callee == "load_tensor" && !call_expr->args.empty()) {
+            std::string path;
+            if (const auto* s = dynamic_cast<const StringLiteralExprAST*>(call_expr->args[0].get())) {
+                path = s->value;
+            }
+            ValueId vid = allocate_value(expr_type, "loaded_tensor", out_fn);
+            out_fn.instructions.push_back(Instruction{
+                .result_id = vid,
+                .opcode = Opcode::LoadTensor,
+                .operands = {},
+                .literal = path,
+                .type = expr_type,
+                .span = expr.span
+            });
+            return vid;
+        }
+
         std::vector<ValueId> arg_ids;
         for (const auto& arg : call_expr->args) {
             arg_ids.push_back(lower_expression(*arg, out_fn));
@@ -149,6 +189,10 @@ ValueId ASTLowerer::lower_expression(const ExprNode& expr, IRFunction& out_fn) {
             op = Opcode::Relu;
         } else if (call_expr->callee == "sum") {
             op = Opcode::Sum;
+        } else if (call_expr->callee == "transpose") {
+            op = Opcode::Transpose;
+        } else if (call_expr->callee == "reshape") {
+            op = Opcode::Reshape;
         }
 
         ValueId vid = allocate_value(expr_type, "call_res", out_fn);

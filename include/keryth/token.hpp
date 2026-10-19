@@ -14,6 +14,7 @@ enum class TokenKind {
     Identifier,
     IntegerLiteral,
     FloatLiteral,
+    StringLiteral,
 
     // Keywords
     KwFn,       // fn
@@ -67,6 +68,7 @@ struct Token {
         case TokenKind::Identifier:     return "Identifier";
         case TokenKind::IntegerLiteral: return "IntegerLiteral";
         case TokenKind::FloatLiteral:   return "FloatLiteral";
+        case TokenKind::StringLiteral:  return "StringLiteral";
         case TokenKind::KwFn:           return "fn";
         case TokenKind::KwLet:          return "let";
         case TokenKind::KwReturn:       return "return";
