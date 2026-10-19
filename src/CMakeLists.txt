@@ -8,6 +8,7 @@ add_library(keryth_core STATIC
     runtime/arena_executor.cpp
     optimizer/optimizer.cpp
     optimizer/memory_planner.cpp
+    backend/llvm_codegen.cpp
 )
 
 target_include_directories(keryth_core PUBLIC

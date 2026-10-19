@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -8,6 +9,7 @@
 #include "keryth/arena_executor.hpp"
 #include "keryth/ir_builder.hpp"
 #include "keryth/lexer.hpp"
+#include "keryth/llvm_codegen.hpp"
 #include "keryth/memory_planner.hpp"
 #include "keryth/optimizer.hpp"
 #include "keryth/parser.hpp"
@@ -32,8 +34,11 @@ void print_help(std::string_view program_name) {
               << "  --dump-ir <file.kr>        Print unoptimized SSA intermediate representation\n"
               << "  --dump-opt-ir <file.kr>    Print optimized SSA intermediate representation\n"
               << "  --dump-memory-plan <file>  Print static memory arena layout and footprint savings\n"
+              << "  --emit-llvm <file.kr>      Print target LLVM IR assembly\n"
+              << "  build <file.kr> -o <bin>   Compile directly to native machine executable\n"
               << "  run <file.kr> [--opt]      Compile and execute using reference interpreter\n"
-              << "  run <file.kr> --arena      Compile and execute in static zero-allocation arena\n\n"
+              << "  run <file.kr> --arena      Compile and execute in static zero-allocation arena\n"
+              << "  run <file.kr> --native     Compile to native machine code and execute on CPU\n\n"
               << "Homepage: https://github.com/keryth/keryth\n";
 }
 
@@ -191,17 +196,91 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (mode == "--emit-llvm" && argc >= 3) {
+        std::string src = read_file(argv[2]);
+        if (src.empty()) return 1;
+
+        keryth::Lexer lexer(src, argv[2]);
+        keryth::Parser parser(lexer.tokenize_all());
+        auto program = parser.parse_program();
+
+        if (parser.has_errors()) {
+            for (const auto& diag : parser.diagnostics()) {
+                std::cerr << "error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::TypeChecker checker;
+        if (!checker.check_program(*program)) {
+            for (const auto& diag : checker.diagnostics()) {
+                std::cerr << "type error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::ASTLowerer lowerer(checker);
+        keryth::IRModule module = lowerer.lower_program(*program);
+
+        keryth::LLVMCodeGen codegen;
+        std::cout << codegen.emit_module(module);
+        return 0;
+    }
+
+    if (mode == "build" && argc >= 5 && std::string_view(argv[3]) == "-o") {
+        std::string src = read_file(argv[2]);
+        if (src.empty()) return 1;
+        std::string out_bin = argv[4];
+
+        keryth::Lexer lexer(src, argv[2]);
+        keryth::Parser parser(lexer.tokenize_all());
+        auto program = parser.parse_program();
+
+        if (parser.has_errors()) {
+            for (const auto& diag : parser.diagnostics()) {
+                std::cerr << "error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::TypeChecker checker;
+        if (!checker.check_program(*program)) {
+            for (const auto& diag : checker.diagnostics()) {
+                std::cerr << "type error: " << diag.message << " at " << diag.span.to_string() << "\n";
+            }
+            return 1;
+        }
+
+        keryth::ASTLowerer lowerer(checker);
+        keryth::IRModule module = lowerer.lower_program(*program);
+
+        keryth::PassManager pm;
+        pm.add_default_passes();
+        pm.run(module);
+
+        keryth::LLVMCodeGen codegen;
+        if (!codegen.compile_to_native_binary(module, out_bin, 3)) {
+            std::cerr << "keryth: error: native binary compilation failed\n";
+            return 1;
+        }
+
+        std::cout << "Successfully compiled native binary: " << out_bin << "\n";
+        return 0;
+    }
+
     if (mode == "run" && argc >= 3) {
         std::string src = read_file(argv[2]);
         if (src.empty()) return 1;
 
         bool optimize = false;
         bool use_arena = false;
+        bool use_native = false;
 
         for (int i = 3; i < argc; ++i) {
             std::string_view opt = argv[i];
             if (opt == "--opt") optimize = true;
             if (opt == "--arena") use_arena = true;
+            if (opt == "--native") use_native = true;
         }
 
         keryth::Lexer lexer(src, argv[2]);
@@ -226,7 +305,7 @@ int main(int argc, char* argv[]) {
         keryth::ASTLowerer lowerer(checker);
         keryth::IRModule module = lowerer.lower_program(*program);
 
-        if (optimize) {
+        if (optimize || use_native) {
             keryth::PassManager pm;
             pm.add_default_passes();
             pm.run(module);
@@ -238,6 +317,20 @@ int main(int argc, char* argv[]) {
         }
 
         const auto& fn = module.functions[0];
+
+        if (use_native) {
+            std::cout << "Executing function @" << fn.name << " (compiled natively via LLVM -O3)...\n";
+            std::string tmp_bin = "/tmp/keryth_run_" + std::to_string(std::rand());
+            keryth::LLVMCodeGen codegen;
+            if (!codegen.compile_to_native_binary(module, tmp_bin, 3)) {
+                std::cerr << "keryth: error: native compilation failed\n";
+                return 1;
+            }
+            int ret = std::system(tmp_bin.c_str());
+            std::remove(tmp_bin.c_str());
+            return (ret == 0 ? 0 : 1);
+        }
+
         std::cout << "Executing function @" << fn.name << " ("
                   << (use_arena ? "zero-allocation arena" : (optimize ? "optimized" : "unoptimized"))
                   << ")...\n";
