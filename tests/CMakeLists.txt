@@ -14,6 +14,10 @@ add_executable(test_type_checker test_type_checker.cpp)
 target_link_libraries(test_type_checker PRIVATE keryth_core)
 add_test(NAME type_checker_unit_test COMMAND test_type_checker)
 
+add_executable(test_interpreter test_interpreter.cpp)
+target_link_libraries(test_interpreter PRIVATE keryth_core)
+add_test(NAME interpreter_unit_test COMMAND test_interpreter)
+
 # Integration tests for CLI flags
 add_test(NAME cli_help_long COMMAND keryth --help)
 set_tests_properties(cli_help_long PROPERTIES PASS_REGULAR_EXPRESSION "Usage: .*keryth")
