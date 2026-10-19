@@ -68,6 +68,7 @@ public:
     [[nodiscard]] static Tensor div(const Tensor& a, const Tensor& b);
     [[nodiscard]] static Tensor matmul(const Tensor& a, const Tensor& b);
     [[nodiscard]] static Tensor relu(const Tensor& a);
+    [[nodiscard]] static Tensor fused_matmul_bias_relu(const Tensor& a, const Tensor& b, const Tensor& bias);
     [[nodiscard]] float sum() const;
 
 private:

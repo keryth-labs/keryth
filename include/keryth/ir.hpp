@@ -28,23 +28,26 @@ enum class Opcode {
     Matmul,
     Relu,
     Sum,
+    // Fused operations
+    FusedMatmulBiasRelu,
     Return
 };
 
 [[nodiscard]] constexpr std::string_view to_string(Opcode op) noexcept {
     switch (op) {
-        case Opcode::Parameter:     return "param";
-        case Opcode::ConstantInt:   return "const.i32";
-        case Opcode::ConstantFloat: return "const.f32";
-        case Opcode::ConstantBool:  return "const.bool";
-        case Opcode::Add:           return "add";
-        case Opcode::Sub:           return "sub";
-        case Opcode::Mul:           return "mul";
-        case Opcode::Div:           return "div";
-        case Opcode::Matmul:        return "matmul";
-        case Opcode::Relu:          return "relu";
-        case Opcode::Sum:           return "sum";
-        case Opcode::Return:        return "return";
+        case Opcode::Parameter:           return "param";
+        case Opcode::ConstantInt:         return "const.i32";
+        case Opcode::ConstantFloat:       return "const.f32";
+        case Opcode::ConstantBool:        return "const.bool";
+        case Opcode::Add:                 return "add";
+        case Opcode::Sub:                 return "sub";
+        case Opcode::Mul:                 return "mul";
+        case Opcode::Div:                 return "div";
+        case Opcode::Matmul:              return "matmul";
+        case Opcode::Relu:                return "relu";
+        case Opcode::Sum:                 return "sum";
+        case Opcode::FusedMatmulBiasRelu: return "fused_matmul_bias_relu";
+        case Opcode::Return:              return "return";
     }
     return "<unknown_op>";
 }

@@ -5,6 +5,7 @@ add_library(keryth_core STATIC
     ir/ir.cpp
     ir/lower.cpp
     runtime/interpreter.cpp
+    optimizer/optimizer.cpp
 )
 
 target_include_directories(keryth_core PUBLIC

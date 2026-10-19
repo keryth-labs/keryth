@@ -116,6 +116,40 @@ Tensor Tensor::relu(const Tensor& a) {
     return Tensor(a.shape(), std::move(res_data));
 }
 
+Tensor Tensor::fused_matmul_bias_relu(const Tensor& a, const Tensor& b, const Tensor& bias) {
+    assert(a.rank() == 2 && b.rank() == 2);
+    int64_t M = a.shape()[0];
+    int64_t K = a.shape()[1];
+    assert(b.shape()[0] == K);
+    int64_t N = b.shape()[1];
+
+    Tensor res({M, N}, 0.0f);
+    const auto& a_data = a.data();
+    const auto& b_data = b.data();
+    const auto& bias_data = bias.data();
+    auto& res_data = res.data();
+
+    for (int64_t i = 0; i < M; ++i) {
+        int64_t a_row = i * K;
+        int64_t c_row = i * N;
+        for (int64_t k = 0; k < K; ++k) {
+            float a_ik = a_data[a_row + k];
+            int64_t b_row = k * N;
+            for (int64_t j = 0; j < N; ++j) {
+                res_data[c_row + j] += a_ik * b_data[b_row + j];
+            }
+        }
+        // Epilogue fusion: add bias and apply ReLU directly in cache per row
+        for (int64_t j = 0; j < N; ++j) {
+            float b_val = (bias.numel() == N) ? bias_data[j] : bias_data[0];
+            float val = res_data[c_row + j] + b_val;
+            res_data[c_row + j] = std::max(0.0f, val);
+        }
+    }
+
+    return res;
+}
+
 float Tensor::sum() const {
     float s = 0.0f;
     for (float v : data_) s += v;
@@ -213,6 +247,13 @@ RuntimeValue Interpreter::execute_function(const IRFunction& fn, const std::vect
                 } else if (std::holds_alternative<float>(val)) {
                     env[inst.result_id] = val;
                 }
+                break;
+            }
+            case Opcode::FusedMatmulBiasRelu: {
+                const auto& a = std::get<Tensor>(env[inst.operands[0]]);
+                const auto& b = std::get<Tensor>(env[inst.operands[1]]);
+                const auto& bias = std::get<Tensor>(env[inst.operands[2]]);
+                env[inst.result_id] = Tensor::fused_matmul_bias_relu(a, b, bias);
                 break;
             }
             case Opcode::Return:
