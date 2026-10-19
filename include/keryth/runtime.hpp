@@ -71,6 +71,12 @@ public:
     [[nodiscard]] static Tensor fused_matmul_bias_relu(const Tensor& a, const Tensor& b, const Tensor& bias);
     [[nodiscard]] float sum() const;
 
+    // Autodiff & Gradient operations
+    [[nodiscard]] Tensor transpose() const;
+    [[nodiscard]] Tensor sum_axis0() const;
+    [[nodiscard]] static Tensor relu_backward(const Tensor& input, const Tensor& grad_output);
+    [[nodiscard]] Tensor scalar_mul(float scalar) const;
+
 private:
     void compute_strides() {
         strides_.resize(shape_.size());

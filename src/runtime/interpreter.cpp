@@ -139,7 +139,6 @@ Tensor Tensor::fused_matmul_bias_relu(const Tensor& a, const Tensor& b, const Te
                 res_data[c_row + j] += a_ik * b_data[b_row + j];
             }
         }
-        // Epilogue fusion: add bias and apply ReLU directly in cache per row
         for (int64_t j = 0; j < N; ++j) {
             float b_val = (bias.numel() == N) ? bias_data[j] : bias_data[0];
             float val = res_data[c_row + j] + b_val;
@@ -156,6 +155,49 @@ float Tensor::sum() const {
     return s;
 }
 
+Tensor Tensor::transpose() const {
+    assert(rank() == 2);
+    int64_t rows = shape_[0];
+    int64_t cols = shape_[1];
+    Tensor res({cols, rows});
+    for (int64_t r = 0; r < rows; ++r) {
+        for (int64_t c = 0; c < cols; ++c) {
+            res.data()[c * rows + r] = data_[r * cols + c];
+        }
+    }
+    return res;
+}
+
+Tensor Tensor::sum_axis0() const {
+    assert(rank() == 2);
+    int64_t rows = shape_[0];
+    int64_t cols = shape_[1];
+    Tensor res({cols}, 0.0f);
+    for (int64_t r = 0; r < rows; ++r) {
+        for (int64_t c = 0; c < cols; ++c) {
+            res.data()[c] += data_[r * cols + c];
+        }
+    }
+    return res;
+}
+
+Tensor Tensor::relu_backward(const Tensor& input, const Tensor& grad_output) {
+    assert(input.shape() == grad_output.shape());
+    std::vector<float> res_data(input.numel());
+    for (int64_t i = 0; i < input.numel(); ++i) {
+        res_data[i] = (input.at_flat(i) > 0.0f) ? grad_output.at_flat(i) : 0.0f;
+    }
+    return Tensor(input.shape(), std::move(res_data));
+}
+
+Tensor Tensor::scalar_mul(float scalar) const {
+    std::vector<float> res_data(numel());
+    for (int64_t i = 0; i < numel(); ++i) {
+        res_data[i] = data_[i] * scalar;
+    }
+    return Tensor(shape_, std::move(res_data));
+}
+
 RuntimeValue Interpreter::execute_function(const IRFunction& fn, const std::vector<RuntimeValue>& args) {
     std::unordered_map<ValueId, RuntimeValue> env;
 
@@ -167,7 +209,7 @@ RuntimeValue Interpreter::execute_function(const IRFunction& fn, const std::vect
     for (const auto& inst : fn.instructions) {
         switch (inst.opcode) {
             case Opcode::Parameter:
-                break; // Already populated from args
+                break;
             case Opcode::ConstantInt:
                 env[inst.result_id] = static_cast<int32_t>(std::get<int64_t>(inst.literal));
                 break;

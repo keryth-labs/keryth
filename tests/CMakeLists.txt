@@ -22,6 +22,10 @@ add_executable(test_optimizer test_optimizer.cpp)
 target_link_libraries(test_optimizer PRIVATE keryth_core)
 add_test(NAME optimizer_unit_test COMMAND test_optimizer)
 
+add_executable(test_autodiff test_autodiff.cpp)
+target_link_libraries(test_autodiff PRIVATE keryth_core)
+add_test(NAME autodiff_unit_test COMMAND test_autodiff)
+
 # Integration tests for CLI flags
 add_test(NAME cli_help_long COMMAND keryth --help)
 set_tests_properties(cli_help_long PROPERTIES PASS_REGULAR_EXPRESSION "Usage: .*keryth")
