@@ -41,3 +41,16 @@ set_tests_properties(cli_version_short PROPERTIES PASS_REGULAR_EXPRESSION "Keryt
 
 add_test(NAME cli_unknown_arg COMMAND keryth --invalid-flag-test)
 set_tests_properties(cli_unknown_arg PROPERTIES WILL_FAIL TRUE)
+
+# Integration tests for Compiler Pipeline on example files
+add_test(NAME cli_dump_ast COMMAND keryth --dump-ast ${CMAKE_SOURCE_DIR}/examples/linear.kr)
+set_tests_properties(cli_dump_ast PROPERTIES PASS_REGULAR_EXPRESSION "Parsed Program with 1 function")
+
+add_test(NAME cli_dump_ir COMMAND keryth --dump-ir ${CMAKE_SOURCE_DIR}/examples/linear.kr)
+set_tests_properties(cli_dump_ir PROPERTIES PASS_REGULAR_EXPRESSION "fn @linear")
+
+add_test(NAME cli_dump_opt_ir COMMAND keryth --dump-opt-ir ${CMAKE_SOURCE_DIR}/examples/linear.kr)
+set_tests_properties(cli_dump_opt_ir PROPERTIES PASS_REGULAR_EXPRESSION "fused_matmul_bias_relu")
+
+add_test(NAME cli_run_example COMMAND keryth run ${CMAKE_SOURCE_DIR}/examples/linear.kr --opt)
+set_tests_properties(cli_run_example PROPERTIES PASS_REGULAR_EXPRESSION "Result: Tensor with shape \\[2, 2\\]")

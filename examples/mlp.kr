@@ -1,0 +1,13 @@
+// Two-layer Multi-Layer Perceptron (MLP) forward pass
+fn mlp(x: Tensor<f32, [4, 2]>,
+       w1: Tensor<f32, [2, 4]>,
+       b1: Tensor<f32, [4]>,
+       w2: Tensor<f32, [4, 1]>,
+       b2: Tensor<f32, [1]>) -> Tensor<f32, [4, 1]> {
+    let z1: Tensor<f32, [4, 4]> = matmul(x, w1);
+    let a1: Tensor<f32, [4, 4]> = z1 + b1;
+    let h: Tensor<f32, [4, 4]> = relu(a1);
+    let z2: Tensor<f32, [4, 1]> = matmul(h, w2);
+    let out: Tensor<f32, [4, 1]> = z2 + b2;
+    return out;
+}
