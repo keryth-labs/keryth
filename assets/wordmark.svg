@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 250" width="100%" height="100%">
+  <!-- Pure black background -->
+  <rect width="800" height="250" fill="#000000" />
+  
+  <!-- Minimalist white geometric logo symbol -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" transform="translate(60, 40) scale(0.35)">
+    <path d="M 150 100 L 250 200 L 250 350 L 150 450" />
+    <path d="M 250 200 L 350 100" />
+    <path d="M 350 400 L 250 300 L 250 150 L 350 50" />
+    <path d="M 250 300 L 150 400" />
+    <circle cx="250" cy="200" r="14" fill="#FFFFFF" stroke="none" />
+    <circle cx="250" cy="300" r="14" fill="#FFFFFF" stroke="none" />
+  </g>
+
+  <!-- Wordmark in clean geometric sans-serif typeface -->
+  <text x="270" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', sans-serif" font-size="76" font-weight="800" fill="#FFFFFF" letter-spacing="8">KERYTH</text>
+
+  <!-- Tagline -->
+  <text x="275" y="175" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', 'Segoe UI', sans-serif" font-size="20" font-weight="400" fill="#888888" letter-spacing="2">Write once. Optimize for the machine.</text>
+</svg>

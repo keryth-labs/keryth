@@ -1,0 +1,41 @@
+name: Keryth CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang llvm ninja-build
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Keryth
+        run: |
+          cd build
+          cmake --build . --parallel
+
+      - name: Run Test Suite (CTest)
+        run: |
+          cd build
+          ctest --output-on-failure --parallel 4
